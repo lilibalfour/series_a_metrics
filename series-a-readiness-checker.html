@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Series A Readiness Checker</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #ffffff;
+    --bg2: #f7f6f3;
+    --bg3: #f0efe9;
+    --text: #1a1a18;
+    --text2: #5a5955;
+    --text3: #9a9893;
+    --border: rgba(0,0,0,0.1);
+    --border2: rgba(0,0,0,0.18);
+    --radius: 10px;
+    --radius-lg: 14px;
+    --green-bg: #E1F5EE; --green-border: #1D9E75; --green-text: #085041;
+    --amber-bg: #FAEEDA; --amber-border: #BA7517; --amber-text: #412402;
+    --red-bg: #FCEBEB; --red-border: #A32D2D; --red-text: #501313;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a; --bg2: #252522; --bg3: #2e2e2a;
+      --text: #f0efea; --text2: #a0a09a; --text3: #606058;
+      --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.18);
+    }
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg3); color: var(--text); min-height: 100vh; padding: 2rem 1rem 4rem; font-size: 15px; line-height: 1.6; }
+  .container { max-width: 720px; margin: 0 auto; }
+  /* Gate */
+  #gate { display: block; }
+  .gate-wrap { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 2.5rem; max-width: 480px; margin: 0 auto; }
+  .eyebrow { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 0.75rem; }
+  h1 { font-size: 26px; font-weight: 600; color: var(--text); margin-bottom: 0.5rem; line-height: 1.2; }
+  .gate-sub { font-size: 14px; color: var(--text2); margin-bottom: 2rem; line-height: 1.6; }
+  .field { margin-bottom: 1rem; }
+  label { display: block; font-size: 13px; color: var(--text2); margin-bottom: 4px; }
+  input[type=text], input[type=email], select {
+    width: 100%; padding: 9px 12px; font-size: 14px; border: 0.5px solid var(--border2);
+    border-radius: var(--radius); background: var(--bg); color: var(--text);
+    outline: none; appearance: none; -webkit-appearance: none;
+  }
+  input:focus, select:focus { border-color: var(--text3); box-shadow: 0 0 0 3px rgba(0,0,0,0.06); }
+  .cta { width: 100%; padding: 11px; font-size: 14px; font-weight: 600; background: var(--text); color: var(--bg); border: none; border-radius: var(--radius); cursor: pointer; margin-top: 0.5rem; letter-spacing: 0.01em; }
+  .cta:hover { opacity: 0.85; }
+  .privacy { font-size: 11px; color: var(--text3); text-align: center; margin-top: 0.75rem; }
+  /* App */
+  #app { display: none; }
+  .welcome { font-size: 14px; color: var(--text2); margin-bottom: 1.5rem; }
+  .welcome strong { color: var(--text); font-weight: 500; }
+  /* Tabs */
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1.75rem; }
+  .tab { font-size: 12px; padding: 5px 13px; border: 0.5px solid var(--border2); border-radius: 20px; cursor: pointer; background: transparent; color: var(--text2); font-family: inherit; }
+  .tab:hover { background: var(--bg2); }
+  .tab.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+  /* Summary */
+  .summary { display: flex; gap: 10px; margin-bottom: 1.25rem; }
+  .pill { flex: 1; text-align: center; padding: 0.75rem 0.5rem; border-radius: var(--radius); }
+  .pill-g { background: var(--green-bg); }
+  .pill-a { background: var(--amber-bg); }
+  .pill-r { background: var(--red-bg); }
+  .pill-num { font-size: 22px; font-weight: 600; display: block; }
+  .pill-g .pill-num { color: var(--green-text); }
+  .pill-a .pill-num { color: var(--amber-text); }
+  .pill-r .pill-num { color: var(--red-text); }
+  .pill-lbl { font-size: 10px; color: var(--text3); margin-top: 2px; display: block; }
+  /* Progress */
+  .prog-wrap { background: var(--bg3); border-radius: 4px; height: 5px; margin-bottom: 0.75rem; overflow: hidden; }
+  .prog-fill { height: 100%; border-radius: 4px; background: var(--green-border); transition: width 0.4s ease; width: 0%; }
+  .readiness { font-size: 14px; color: var(--text2); margin-bottom: 1.5rem; min-height: 1.4em; }
+  .readiness strong { color: var(--text); font-weight: 500; }
+  /* Section */
+  .section-title { font-size: 16px; font-weight: 500; color: var(--text); margin-bottom: 0.25rem; }
+  .section-note { font-size: 12px; color: var(--text3); margin-bottom: 1.25rem; line-height: 1.5; max-width: 600px; }
+  /* Metric grid */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
+  .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1rem; transition: border-color 0.15s; }
+  .card.green { border-color: var(--green-border); background: var(--green-bg); }
+  .card.amber { border-color: var(--amber-border); background: var(--amber-bg); }
+  .card.red { border-color: var(--red-border); background: var(--red-bg); }
+  .metric-name { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 3px; }
+  .metric-target { font-size: 12px; color: var(--text2); margin-bottom: 5px; }
+  .metric-target span { font-weight: 500; color: var(--text); }
+  .metric-note { font-size: 11px; color: var(--text3); line-height: 1.45; margin-bottom: 10px; }
+  .card.green .metric-name, .card.green .metric-target span { color: var(--green-text); }
+  .card.green .metric-target, .card.green .metric-note { color: #0F6E56; }
+  .card.amber .metric-name, .card.amber .metric-target span { color: var(--amber-text); }
+  .card.amber .metric-target, .card.amber .metric-note { color: #633806; }
+  .card.red .metric-name, .card.red .metric-target span { color: var(--red-text); }
+  .card.red .metric-target, .card.red .metric-note { color: #791F1F; }
+  /* Status buttons */
+  .status-row { display: flex; gap: 5px; }
+  .sbtn { flex: 1; font-size: 11px; padding: 4px 5px; border: 0.5px solid var(--border2); border-radius: 6px; cursor: pointer; background: transparent; color: var(--text2); font-family: inherit; white-space: nowrap; }
+  .sbtn:hover { background: var(--bg2); }
+  .sbtn.sel-g { background: var(--green-bg); border-color: var(--green-border); color: var(--green-text); font-weight: 500; }
+  .sbtn.sel-a { background: var(--amber-bg); border-color: var(--amber-border); color: var(--amber-text); font-weight: 500; }
+  .sbtn.sel-r { background: var(--red-bg); border-color: var(--red-border); color: var(--red-text); font-weight: 500; }
+  /* Divider & footer */
+  hr { border: none; border-top: 0.5px solid var(--border); margin: 2rem 0 1.5rem; }
+  .footer-note { font-size: 12px; color: var(--text3); line-height: 1.5; }
+  /* Confirmation banner */
+  #confirm-banner { display: none; background: var(--green-bg); border: 0.5px solid var(--green-border); border-radius: var(--radius); padding: 0.75rem 1rem; font-size: 13px; color: var(--green-text); margin-bottom: 1.5rem; }
+</style>
+<style>
+  /* Kit form overrides */
+  #kit-form { background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; max-width: 100% !important; }
+  #kit-form * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif !important; }
+  #kit-form .formkit-fields { display: block !important; }
+  #kit-form .formkit-field { margin-bottom: 1rem !important; flex: none !important; width: 100% !important; }
+  #kit-form .formkit-input { width: 100% !important; padding: 9px 12px !important; font-size: 14px !important; border: 0.5px solid var(--border2) !important; border-radius: var(--radius) !important; background: var(--bg) !important; color: var(--text) !important; outline: none !important; box-shadow: none !important; }
+  #kit-form .formkit-submit { width: 100% !important; padding: 11px !important; font-size: 14px !important; font-weight: 600 !important; background: var(--text) !important; color: var(--bg) !important; border: none !important; border-radius: var(--radius) !important; cursor: pointer !important; letter-spacing: 0.01em !important; margin-bottom: 0 !important; flex: none !important; }
+  #kit-form .formkit-submit:hover { opacity: 0.85 !important; }
+  #kit-form .formkit-powered-by-convertkit-container { display: none !important; }
+  #kit-form .formkit-alert-success { background: var(--green-bg) !important; color: var(--green-text) !important; border: 0.5px solid var(--green-border) !important; border-radius: var(--radius) !important; padding: 0.75rem 1rem !important; font-size: 13px !important; }
+  #kit-form .formkit-alert-error { background: var(--red-bg) !important; color: var(--red-text) !important; border: 0.5px solid var(--red-border) !important; border-radius: var(--radius) !important; padding: 0.75rem 1rem !important; font-size: 13px !important; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- GATE -->
+  <div id="gate">
+    <div class="gate-wrap">
+      <p class="eyebrow">Fundraising toolkit</p>
+      <h1>Are you Series A ready?</h1>
+      <p class="gate-sub">The metrics benchmarks investors actually use when evaluating seed-stage companies. Self-assess in under 5 minutes.</p>
+
+      <div class="field">
+        <label for="fmodel">Business model</label>
+        <select id="fmodel">
+          <option value="">Select your model</option>
+          <option value="saas">SaaS (B2B)</option>
+          <option value="consumer">Consumer</option>
+          <option value="marketplace">Marketplace</option>
+          <option value="ecommerce">Ecommerce / DTC</option>
+          <option value="adbased">Ad-based</option>
+          <option value="ai">AI / Infrastructure</option>
+          <option value="brickmortar">Brick &amp; Mortar</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="fstage">Current ARR / revenue</label>
+        <select id="fstage">
+          <option value="">Select range</option>
+          <option>Pre-revenue</option>
+          <option>$0–$500K</option>
+          <option>$500K–$2M</option>
+          <option>$2M–$5M</option>
+          <option>$5M+</option>
+        </select>
+      </div>
+
+      <!-- Kit form - inline embed (modal behavior removed) -->
+      <script src="https://f.convertkit.com/ckjs/ck.5.js"></script>
+      <form action="https://app.kit.com/forms/9372923/subscriptions"
+        class="seva-form formkit-form"
+        method="post"
+        data-sv-form="9372923"
+        data-uid="a499ed26f3"
+        data-format="inline"
+        data-version="5"
+        id="kit-form">
+        <ul class="formkit-alert formkit-alert-error" data-element="errors" data-group="alert"></ul>
+        <div data-element="fields" class="seva-fields formkit-fields">
+          <div class="formkit-field">
+            <input class="formkit-input" name="fields[first_name]" placeholder="First name" type="text" />
+          </div>
+          <div class="formkit-field">
+            <input class="formkit-input" name="email_address" aria-label="Email Address" placeholder="Email address" required type="email" />
+          </div>
+          <button data-element="submit" class="formkit-submit">
+            <div class="formkit-spinner"><div></div><div></div><div></div></div>
+            <span>Get my readiness score →</span>
+          </button>
+        </div>
+      </form>
+
+      <p class="privacy" style="margin-top:0.75rem;">You'll be added to the Finance for Entrepreneurs list. Unsubscribe any time.</p>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div id="app">
+    <div id="confirm-banner" id="confirm-banner"></div>
+    <p class="welcome" id="welcome-msg"></p>
+
+    <div class="tabs" id="tabs"></div>
+
+    <div class="summary">
+      <div class="pill pill-g"><span class="pill-num" id="cnt-g">0</span><span class="pill-lbl">On track</span></div>
+      <div class="pill pill-a"><span class="pill-num" id="cnt-a">0</span><span class="pill-lbl">Getting there</span></div>
+      <div class="pill pill-r"><span class="pill-num" id="cnt-r">0</span><span class="pill-lbl">Needs work</span></div>
+    </div>
+
+    <div class="prog-wrap"><div class="prog-fill" id="prog"></div></div>
+    <p class="readiness" id="readiness">Rate each metric below to calculate your readiness score.</p>
+
+    <div id="content"></div>
+
+    <hr>
+    <a href="https://calendly.com/lili-2/officehour" target="_blank" style="display:inline-block;padding:10px 20px;background:var(--text);color:var(--bg);border-radius:var(--radius);font-size:14px;font-weight:600;text-decoration:none;margin-bottom:1.5rem;">Book a fundraising office hour →</a>
+    <p class="footer-note">Benchmarks reflect what top-quartile seed-stage companies show investors at Series A. Context always matters — trajectory and cohort shape are often more important than any single number.</p>
+  </div>
+
+</div>
+<script>
+var MODELS = {
+  saas: {
+    label: "SaaS (B2B)",
+    note: "Investors focus on NRR and growth efficiency. Trajectory matters as much as snapshot — show month-over-month improvement, not just where you are today.",
+    metrics: [
+      { name: "ARR", target: "$2M–$10M+", note: "Strong PMF signal. Sub-$2M is possible if growth is exceptional — show a clear path." },
+      { name: "ARR growth", target: "100%+ YoY", note: "Top quartile. 80%+ is defensible if NRR and efficiency metrics are strong." },
+      { name: "Gross margin", target: "70–90%", note: "Sub-70% raises questions about unit economics unless you're infrastructure-heavy." },
+      { name: "Net revenue retention (NRR)", target: "110–140%", note: "The single most important SaaS metric. Shows product stickiness and expansion revenue." },
+      { name: "Gross revenue retention (GRR)", target: "80–95%", note: "High GRR + high NRR = healthy expansion, not upsell masking churn." },
+      { name: "CAC payback", target: "<12–18 months", note: "Best-in-class is <12 months. Beyond 24 months is a red flag at A." },
+      { name: "Burn multiple", target: "<1.5–2x", note: "Net new ARR ÷ net burn. <1x is elite. >2x signals growth-efficiency problems." },
+      { name: "Logo churn", target: "<10% annually", note: "Distinguish logo churn from revenue churn. Both matter to investors — report both." },
+    ]
+  },
+  consumer: {
+    label: "Consumer",
+    note: "Consumer A rounds are harder to call. Cohort shape and trajectory matter more than any single number. Show compounding retention, not just growth.",
+    metrics: [
+      { name: "MAU/DAU growth", target: "Strong + consistent", note: "Consistency beats peaks. Show 6+ months of stable or accelerating curves, not a hockey stick with no follow-through." },
+      { name: "D30 retention", target: "20–40%+", note: "Category-dependent: social >30%, utility >20%, gaming >25%. Know your benchmark and outperform it." },
+      { name: "CAC trend", target: "Decreasing over time", note: "Rising CAC with flat retention is a trap. Show organic/word-of-mouth momentum building." },
+      { name: "LTV/CAC", target: ">3x", note: "Measure LTV conservatively (12–24 month window). Don't model heroic long-term assumptions." },
+      { name: "Viral coefficient (K-factor)", target: ">1 (ideal)", note: "K>1 = organic growth. Even K of 0.5–0.8 meaningfully reduces paid acquisition dependency." },
+      { name: "Engagement depth", target: "High session frequency", note: "Define your 'power user' segment and show what % of your base qualifies. Investors love this framing." },
+    ]
+  },
+  marketplace: {
+    label: "Marketplace",
+    note: "Liquidity and defensibility are the key questions. Prove you've solved cold-start and that your take rate is sustainable at scale.",
+    metrics: [
+      { name: "GMV", target: "$5M–$50M+", note: "What matters more than the absolute number: GMV growth rate (aim 3x+ YoY) and transaction quality." },
+      { name: "Take rate", target: "10–30%", note: "Higher take rate = stronger network value. Be ready to explain why suppliers accept your cut." },
+      { name: "Supply/demand balance", target: "Stable match rate", note: "Show median match time improving. Improving liquidity is the moat — quantify it." },
+      { name: "Repeat rate", target: ">50% of GMV from repeat", note: "Repeat transactions signal genuine utility, not just marketing-driven one-off purchases." },
+      { name: "Contribution margin", target: "Positive or improving", note: "Revenue minus direct transaction costs. Must be on a clear path to positive." },
+      { name: "Bypass / leakage rate", target: "<5%", note: "How often do users transact off-platform? High leakage = weak moat. Track this and address it." },
+    ]
+  },
+  ecommerce: {
+    label: "Ecommerce / DTC",
+    note: "DTC A rounds require evidence of brand loyalty, not just growth. Show repeat cohorts improving and payback tightening over time.",
+    metrics: [
+      { name: "Revenue", target: "$5M–$20M+", note: "Context-dependent on category. Revenue quality and repeat cohort shape matter more than the absolute number." },
+      { name: "Gross margin", target: "50–70%", note: "Assumes branded/direct. Pure resellers will be lower. Below 40% requires a strong volume story." },
+      { name: "CAC payback", target: "<3–6 months", note: "Much tighter than SaaS. E-commerce is capital-intensive — slow payback burns cash fast at scale." },
+      { name: "Repeat purchase rate", target: "30%+ at 12 months", note: "Measure at a fixed cohort window. Improving across cohorts = brand compounding." },
+      { name: "Average order value (AOV)", target: "Increasing", note: "Rising AOV with flat or declining CAC = strong unit economics story. Upsell and bundling matter." },
+      { name: "LTV/CAC", target: ">3x", note: "Use 24-month LTV to be conservative. >3x gives runway for paid acquisition at scale." },
+    ]
+  },
+  adbased: {
+    label: "Ad-based",
+    note: "Ad-based A rounds are volume games. Prove you can build and retain a large, engaged audience with improving monetization density.",
+    metrics: [
+      { name: "MAU", target: "1M+ (context-dependent)", note: "Threshold varies by vertical. Niche professional audiences can monetize meaningfully at lower scale." },
+      { name: "ARPU trend", target: "Growing QoQ", note: "Rising ARPU signals improving ad inventory quality or better targeting — not just more users." },
+      { name: "CPM trend", target: "Increasing", note: "Higher CPMs = better audience quality. Benchmark against your category averages, not general internet." },
+      { name: "Cohort retention shape", target: "Flattening curves", note: "Show D7, D30, D90. Cohorts that flatten (rather than keep declining) = retained, monetizable audience." },
+      { name: "Engagement depth", target: "High time spent + frequency", note: "Time-in-session AND session frequency. One without the other is weak — show both." },
+      { name: "Revenue growth", target: "50%+ YoY", note: "For ad businesses, the engaged audience is the asset. Growth rate matters more than absolute revenue." },
+    ]
+  },
+  ai: {
+    label: "AI / Infrastructure",
+    note: "AI/infra A rounds are evolving fast. Investors accept lower revenue but want to see structural differentiation and early signs of stickiness.",
+    metrics: [
+      { name: "ARR or revenue run rate", target: "$1M–$5M+ (stage-adjusted)", note: "Lower floor than pure SaaS. Paid pilots and design partners count — show conversion to recurring." },
+      { name: "Gross margin (net of compute)", target: "50–80%", note: "Gross margin after GPU/API costs matters. Sub-40% at scale raises serious COGS concerns." },
+      { name: "Usage growth", target: "Strong + consistent", note: "API calls, tokens processed, active deployments. Show compounding platform adoption over 6+ months." },
+      { name: "Customer concentration", target: "<30% from top customer", note: "High concentration = fragile ARR. Investors want to see a diversified early customer base." },
+      { name: "Net revenue retention (NRR)", target: "110%+ as product matures", note: "Early stage: prove usage expansion within accounts. It doesn't need to be perfect yet — show direction." },
+      { name: "Differentiation / defensibility", target: "Clear data or model moat", note: "Proprietary data, fine-tuned models, or switching costs. Pure wrapper businesses face tough questions." },
+    ]
+  },
+  brickmortar: {
+    label: "Brick & Mortar",
+    note: "Physical retail and hospitality A rounds hinge on unit economics per location. Investors want to see a proven, repeatable model before funding expansion — one great location is not enough.",
+    metrics: [
+      { name: "Sales per square foot", target: "Varies by category (see note)", note: "Benchmarks: coffee shops $400–$700 solid, $700–$1,000+ excellent; boutique fitness $100–$350; traditional gyms $50–$100; specialty retail $300–$500. Apple is the outlier at $5,000–$6,000+. Know your category benchmark and beat it." },
+      { name: "AUV (average unit volume)", target: "Top quartile for your category", note: "Annual revenue per location. Investors want to see AUV growing across your cohort of locations, not just the flagship." },
+      { name: "Unit-level EBITDA margin", target: "15–25%+", note: "The single most important metric for brick & mortar fundraising. Proves the model works before you scale. Sub-10% is a red flag." },
+      { name: "Payback period per location", target: "<24 months", note: "Total build-out and pre-opening costs divided by annual unit-level cash flow. Faster payback = more capital-efficient expansion." },
+      { name: "Same-store sales growth", target: "Positive + consistent YoY", note: "Revenue growth at established locations strips out new opening noise. Shows organic health of the model." },
+      { name: "Repeat customer rate", target: "60%+ of revenue", note: "High repeat = brand loyalty and lower CAC at scale. Track via loyalty program, POS data, or card-linked analytics." },
+      { name: "Gross margin", target: "60–75% (food & bev); 50–65% (retail)", note: "Before labor and occupancy costs. Below these thresholds, unit economics rarely work at scale without very high volume." },
+    ]
+  }
+};
+
+var state = {};
+var activeModel = '';
+var userName = '';
+
+function unlock(name, model) {
+  userName = name || 'Founder';
+  model = model || 'saas';
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  var banner = document.getElementById('confirm-banner');
+  banner.textContent = 'You\'re in, ' + userName + '. Rate each metric below to get your readiness score.';
+  banner.style.display = 'block';
+  setTimeout(function() { banner.style.display = 'none'; }, 4000);
+  document.getElementById('welcome-msg').innerHTML = 'Benchmarks for <strong>' + (MODELS[model] ? MODELS[model].label : 'your business') + '</strong>. Tap each metric to rate where you stand.';
+  buildTabs(model);
+}
+
+// Intercept Kit form submit — unlock tool immediately on submit
+document.addEventListener('DOMContentLoaded', function() {
+  var kitForm = document.getElementById('kit-form');
+  if (kitForm) {
+    kitForm.addEventListener('submit', function() {
+      var model = document.getElementById('fmodel').value || 'saas';
+      var nameEl = kitForm.querySelector('input[name="fields[first_name]"]');
+      var name = nameEl ? nameEl.value.trim() : '';
+      // Unlock immediately — Kit subscription fires in background
+      unlock(name, model);
+    });
+  }
+});
+
+function buildTabs(defaultModel) {
+  var tabs = document.getElementById('tabs');
+  tabs.innerHTML = '';
+  Object.keys(MODELS).forEach(function(key) {
+    var btn = document.createElement('button');
+    btn.className = 'tab' + (key === defaultModel ? ' active' : '');
+    btn.textContent = MODELS[key].label;
+    btn.setAttribute('data-key', key);
+    btn.onclick = function() {
+      document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      activeModel = key;
+      renderModel(key);
+    };
+    tabs.appendChild(btn);
+  });
+  activeModel = defaultModel || 'saas';
+  renderModel(activeModel);
+}
+
+function renderModel(key) {
+  var m = MODELS[key];
+  var container = document.getElementById('content');
+  container.innerHTML = '<p class="section-title">' + m.label + '</p><p class="section-note">' + m.note + '</p><div class="grid" id="grid-' + key + '"></div>';
+  var grid = document.getElementById('grid-' + key);
+  m.metrics.forEach(function(metric, i) {
+    var id = key + '_' + i;
+    var cur = state[id] || null;
+    var card = document.createElement('div');
+    card.className = 'card' + (cur ? ' ' + cur : '');
+    card.id = 'card-' + id;
+    card.innerHTML =
+      '<div class="metric-name">' + metric.name + '</div>' +
+      '<div class="metric-target">Target: <span>' + metric.target + '</span></div>' +
+      '<div class="metric-note">' + metric.note + '</div>' +
+      '<div class="status-row">' +
+        '<button class="sbtn' + (cur === 'green' ? ' sel-g' : '') + '" onclick="setS(\'' + id + '\',\'green\',this)">On track</button>' +
+        '<button class="sbtn' + (cur === 'amber' ? ' sel-a' : '') + '" onclick="setS(\'' + id + '\',\'amber\',this)">Getting there</button>' +
+        '<button class="sbtn' + (cur === 'red' ? ' sel-r' : '') + '" onclick="setS(\'' + id + '\',\'red\',this)">Needs work</button>' +
+      '</div>';
+    grid.appendChild(card);
+  });
+  updateSummary();
+}
+
+function setS(id, status, btn) {
+  state[id] = status;
+  var card = document.getElementById('card-' + id);
+  card.className = 'card ' + status;
+  card.querySelectorAll('.sbtn').forEach(function(b) { b.className = 'sbtn'; });
+  var map = { green: 'sel-g', amber: 'sel-a', red: 'sel-r' };
+  btn.className = 'sbtn ' + map[status];
+  updateSummary();
+
+  // ---------------------------------------------------------------
+  // OPTIONAL: Log engagement events to your analytics tool
+  // e.g. Google Analytics, Segment, Mixpanel, etc.
+  // ---------------------------------------------------------------
+  // gtag('event', 'metric_rated', { metric: id, status: status });
+}
+
+function updateSummary() {
+  var vals = Object.values(state);
+  var g = vals.filter(function(v) { return v === 'green'; }).length;
+  var a = vals.filter(function(v) { return v === 'amber'; }).length;
+  var r = vals.filter(function(v) { return v === 'red'; }).length;
+  var total = vals.length;
+  document.getElementById('cnt-g').textContent = g;
+  document.getElementById('cnt-a').textContent = a;
+  document.getElementById('cnt-r').textContent = r;
+  var pct = total === 0 ? 0 : Math.round((g / total) * 100);
+  document.getElementById('prog').style.width = pct + '%';
+  var msg = 'Rate each metric below to calculate your readiness score.';
+  if (total > 0) {
+    if (pct >= 75) msg = '<strong>Strong signal.</strong> ' + pct + '% of rated metrics are on track — you\'re building toward a compelling A story.';
+    else if (pct >= 50) msg = '<strong>Solid foundation.</strong> ' + pct + '% on track. Address the red metrics before active fundraising.';
+    else if (pct >= 25) msg = '<strong>Early stage.</strong> ' + pct + '% on track. Use this as your roadmap for the next 6–12 months.';
+    else msg = '<strong>Keep building.</strong> ' + pct + '% on track. Focus on 1–2 key metrics that will unlock the rest.';
+  }
+  document.getElementById('readiness').innerHTML = msg;
+}
+</script>
+</body>
+</html>
